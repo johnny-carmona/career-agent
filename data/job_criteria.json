@@ -1,0 +1,25 @@
+{
+  "workType": {
+    "remote": true,
+    "hybrid": false,
+    "onsite": false
+  },
+  "jobType": {
+    "full-stack": false,
+    "front-end": false,
+    "javascript": false,
+    "software": false,
+    "typescript": true,
+    "react": true,
+    "node": true,
+    "angular": true,
+    "react native": true
+  },
+  "locationKeywords": [
+    "USA",
+    "United States",
+    "US Remote",
+    "North America",
+    "Remote"
+  ]
+}

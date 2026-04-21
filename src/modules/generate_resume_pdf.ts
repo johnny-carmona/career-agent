@@ -9,16 +9,66 @@ import { server } from "../server.js";
 server.registerTool(
     "generate_resume_pdf",
     {
-        description: "Generates a tailored resume PDF named 'Johnny Carmona {role} Resume.pdf' saved in data/resumes/. The content should be a rewritten/reordered version of the candidate's resume emphasising experience relevant to the job description. Call read_resume and browser_open first to have both the resume and job description available, then craft the tailored content before calling this tool. Call this before browser_upload_resume.",
+        description: `Generates a tailored resume PDF named 'Johnny Carmona {role} Resume.pdf' saved in data/resumes/.
+
+IMPORTANT: Do NOT include contact info (name, email, phone, LinkedIn) in the content — it is auto-injected from resume.md.
+
+The content must be valid Markdown following the exact structure of resume.md. Use resume.md as your template:
+
+STRUCTURE (sections in this order):
+  ## Objective
+  ## Professional Summary
+  ## Technical Skills
+  ## Professional Experience
+  ## Education
+  ## Immigration Status
+
+MARKDOWN CONVENTIONS:
+- ## Heading    → section header with rule
+- ### Heading   → job title line (bold)
+- *italic line* → date range line (italic, gray) — must be its own line
+- **Label:** value → skill category (bold label, regular value)
+- - bullet      → bullet point with indent
+- plain text    → regular body paragraph
+
+JOB ENTRY FORMAT:
+  ### Title, Company, Location
+  *Month YYYY - Month YYYY*
+
+  - Description line
+  - Another description line
+
+SKILLS FORMAT:
+  **Programming Languages:** JavaScript, TypeScript, Python
+  **Frontend Frameworks:** React, Angular, Vue.js
+
+TAILORING RULES:
+- ## Objective: rewrite to target this specific role and company
+- ## Professional Summary: emphasize most relevant background
+- ## Technical Skills: reorder so most relevant skills appear first; only include skills from resume.md
+- ## Professional Experience: rewrite bullets to be professional and impactful for this role. Do NOT fabricate. Keep ALL jobs.
+- ## Education and ## Immigration Status: copy verbatim from resume.md
+
+Call read_resume first before crafting content.`,
         inputSchema: z.object({
             role: z.string().describe("The job position/title extracted from the job description (e.g. 'Senior Software Engineer')"),
-            content: z.string().describe("The full tailored resume text, rewritten to emphasise skills and experience most relevant to the job description"),
+            content: z.string().describe("Full tailored resume body in Markdown, following resume.md structure. Do NOT include contact info — auto-injected."),
         }),
     },
     async ({ role, content }) => {
         try {
             const __filename = fileURLToPath(import.meta.url);
             const __dirname = path.dirname(__filename);
+
+            // Always read contact info from resume.md
+            const resumeMd = await fs.readFile(path.join(__dirname, "../../data/resume.md"), "utf-8").catch(() => "");
+            const extractField = (label: string) =>
+                resumeMd.match(new RegExp(`${label}[:\\s]+(.+)`, "i"))?.[1]?.trim() ?? "";
+            const candidateName = (resumeMd.match(/^#\s+(.+)/m)?.[1] ?? "Johnny Carmona").trim();
+            const email = extractField("email");
+            const phone = extractField("phone");
+            const linkedin = extractField("linkedin");
+
             const resumesDir = path.join(__dirname, "../../data/resumes");
             await fs.mkdir(resumesDir, { recursive: true });
 
@@ -26,35 +76,105 @@ server.registerTool(
             const filePath = path.join(resumesDir, fileName);
 
             await new Promise<void>((resolve, reject) => {
-                const doc = new PDFDocument({ margin: 72 });
+                const doc = new PDFDocument({ margin: 54, size: "LETTER" });
                 const stream = createWriteStream(filePath);
                 doc.pipe(stream);
 
+                const marginLeft = doc.page.margins.left;
+                const pageWidth = doc.page.width - marginLeft - doc.page.margins.right;
+
+                // ── Contact header (always from resume.md) ───────────────────
+                doc.fontSize(20).font("Helvetica-Bold").fillColor("#1a1a1a")
+                    .text(candidateName, { align: "center", lineGap: 2 });
+                const contactParts = [email, phone, linkedin].filter(Boolean);
+                if (contactParts.length) {
+                    doc.fontSize(9).font("Helvetica").fillColor("#444444")
+                        .text(contactParts.join("   |   "), { align: "center", lineGap: 2 });
+                }
+                // Header divider
+                doc.moveDown(0.5);
+                const headerRuleY = doc.y;
+                doc.moveTo(marginLeft, headerRuleY)
+                    .lineTo(marginLeft + pageWidth, headerRuleY)
+                    .strokeColor("#1a1a1a").lineWidth(1).stroke();
+                doc.moveDown(0.6);
+                doc.fillColor("#000000");
+
+                // ── Markdown-aware body renderer ─────────────────────────────
                 const lines = content.split("\n");
-                for (const line of lines) {
-                    const trimmed = line.trim();
+                for (let i = 0; i < lines.length; i++) {
+                    const raw = lines[i] ?? "";
+                    const trimmed = raw.trim();
+
                     if (!trimmed) {
-                        // blank line → small vertical gap
-                        doc.moveDown(0.3);
-                    } else if (trimmed === trimmed.toUpperCase() && trimmed.length > 2 && /^[A-Z]/.test(trimmed)) {
-                        // ALL-CAPS line → section header
-                        doc.moveDown(0.4)
-                            .fontSize(12).font("Helvetica-Bold").text(trimmed, { lineGap: 2 })
-                            .moveTo(doc.page.margins.left, doc.y)
-                            .lineTo(doc.page.width - doc.page.margins.right, doc.y)
-                            .strokeColor("#aaaaaa").lineWidth(0.5).stroke()
-                            .moveDown(0.2);
-                        doc.fontSize(11).font("Helvetica");
-                    } else if (trimmed.startsWith("- ")) {
-                        // bullet point
-                        doc.fontSize(11).font("Helvetica").text(line, { lineGap: 3, indent: 12 });
-                    } else if (/^[A-Z]/.test(trimmed) && trimmed.endsWith("|") === false && lines[lines.indexOf(line) + 1]?.trim().startsWith("-")) {
-                        // job title / company line (line followed by bullets)
-                        doc.fontSize(11).font("Helvetica-Bold").text(trimmed, { lineGap: 2 });
-                        doc.font("Helvetica");
-                    } else {
-                        doc.fontSize(11).font("Helvetica").text(line, { lineGap: 3 });
+                        doc.moveDown(0.2);
+                        continue;
                     }
+
+                    // ## Section header
+                    if (/^##\s+/.test(trimmed)) {
+                        const text = trimmed.replace(/^##\s+/, "").toUpperCase();
+                        doc.moveDown(0.5)
+                            .fontSize(9.5).font("Helvetica-Bold").fillColor("#1a1a1a")
+                            .text(text, { lineGap: 2, characterSpacing: 0.8 });
+                        const ruleY = doc.y + 2;
+                        doc.moveTo(marginLeft, ruleY)
+                            .lineTo(marginLeft + pageWidth, ruleY)
+                            .strokeColor("#1a1a1a").lineWidth(0.75).stroke();
+                        doc.moveDown(0.4).fontSize(10).font("Helvetica").fillColor("#000000");
+                        continue;
+                    }
+
+                    // ### Job title line
+                    if (/^###\s+/.test(trimmed)) {
+                        const text = trimmed.replace(/^###\s+/, "");
+                        doc.moveDown(0.4).fontSize(10.5).font("Helvetica-Bold")
+                            .fillColor("#1a1a1a").text(text, { lineGap: 2 });
+                        doc.font("Helvetica").fillColor("#000000");
+                        continue;
+                    }
+
+                    // *italic line* — date range
+                    if (/^\*[^*].+\*$/.test(trimmed) || /^\*\S+\*$/.test(trimmed)) {
+                        const text = trimmed.replace(/^\*/, "").replace(/\*$/, "");
+                        doc.fontSize(9.5).font("Helvetica-Oblique").fillColor("#555555")
+                            .text(text, { lineGap: 3 });
+                        doc.font("Helvetica").fillColor("#000000").moveDown(0.15);
+                        continue;
+                    }
+
+                    // **Label:** value — skill category
+                    if (/^\*\*[^*]+:\*\*/.test(trimmed)) {
+                        const match = trimmed.match(/^\*\*([^*]+):\*\*\s*(.*)/);
+                        if (match) {
+                            const label = (match[1] ?? "") + ":";
+                            const value = match[2] ?? "";
+                            doc.fontSize(10).font("Helvetica-Bold").fillColor("#1a1a1a")
+                                .text(label + " ", { continued: true, lineGap: 3 });
+                            doc.font("Helvetica").fillColor("#000000").text(value, { lineGap: 3 });
+                            continue;
+                        }
+                    }
+
+                    // Sub-bullet: lines starting with "  - " (two spaces)
+                    if (/^\s{2,}-\s+/.test(raw)) {
+                        const text = raw.replace(/^\s+-\s+/, "");
+                        doc.fontSize(9.5).font("Helvetica").fillColor("#000000")
+                            .text(`\u25e6 ${text}`, { lineGap: 2.5, indent: 22 });
+                        continue;
+                    }
+
+                    // - bullet point
+                    if (/^-\s+/.test(trimmed)) {
+                        const text = trimmed.replace(/^-\s+/, "");
+                        doc.fontSize(10).font("Helvetica").fillColor("#000000")
+                            .text(`\u2022 ${text}`, { lineGap: 3, indent: 12 });
+                        continue;
+                    }
+
+                    // Regular body text (strip stray markdown)
+                    const plain = trimmed.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
+                    doc.fontSize(10).font("Helvetica").fillColor("#000000").text(plain, { lineGap: 3 });
                 }
 
                 doc.end();

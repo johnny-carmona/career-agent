@@ -1,2 +1,13 @@
 node_modules
 build
+data/resumes
+data/cover_letters
+data/browser_profile
+data/job_queue.json
+data/jobs_applied.json
+.ds_store
+.DS_Store
+.idea
+.vscode
+*.log
+*.env
