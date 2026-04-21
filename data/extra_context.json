@@ -1,18 +1,1 @@
-[
-    {
-        "title": "interesting frontend challenges",
-        "description": "a particular experience that demostratres my frontend and implementation skills",
-        "project context": "the project was a predictive software for drill replacements in the oild and gas industry",
-        "challenges": [
-            "the UI used Angular and the tool had to render multiple elements on the screen that looked like postits on a calendar, but once the number was to hight the performance was pretty bad, so I had override angular defaul render to implement a virtual scroll to only render the elements that were visible on the screen and improve the performance"
-        ]
-    },
-    {
-        "title": "interesting front end design pattern",
-        "description": "a particular design pattern that I have used in one of my projects",
-        "project context": "Project for a big Telcom company that using historical data predicted the schedules of the technicians and the demand for the week, and the tool had to be used by the dispatchers to plan the next week of work, dispatchers would get recommendations  and they could either accet or reject the recommendations, and the tool would learn from their feedback to improve the recommendations",
-        "challenges": [
-            "used a custom made app state management using rxjs subjects and observables to manage the state of the application and the communication between components, this allowed us to have a more flexible and scalable architecture, and also to have a better performance by avoiding unnecessary re-rendders, this made easy to maintain and reduce alot of the boiler plate code that we would have with other state management libraries, the issue was that since it was a custom made solution it was not well documented and it took some time for new developers to understand how it worked and how to use it, but once they understood it they found it very useful and easy to use"
-        ]
-    }
-]
+[]
