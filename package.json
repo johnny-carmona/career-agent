@@ -1,7 +1,7 @@
 {
   "name": "career-agent",
   "version": "1.0.0",
-  "description": "MCP server to automate cover letters",
+  "description": "MCP server that automates job applications — scrapes job boards, generates tailored resume PDFs, fills and submits application forms via a real Chrome browser, and logs completed applications",
   "license": "ISC",
   "author": "Johnny Carmona",
   "type": "module",

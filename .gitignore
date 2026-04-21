@@ -6,6 +6,7 @@ data/job_queue.json
 data/jobs_applied.json
 data/resume.md
 data/browser-profile/
+data/extra_context.json
 .ds_store
 .DS_Store
 .idea
