@@ -7,6 +7,7 @@ data/jobs_applied.json
 data/resume.md
 data/browser-profile/
 data/extra_context.json
+data/job_criteria.json
 .ds_store
 .DS_Store
 .idea

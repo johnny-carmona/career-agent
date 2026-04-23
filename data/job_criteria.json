@@ -1,8 +1,8 @@
 {
   "workType": {
-    "remote": true,
-    "hybrid": false,
-    "onsite": false
+    "remote": false,
+    "hybrid": true,
+    "onsite": true
   },
   "jobType": {
     "full-stack": false,
@@ -16,10 +16,6 @@
     "react native": true
   },
   "locationKeywords": [
-    "USA",
-    "United States",
-    "US Remote",
-    "North America",
-    "Remote"
+    "New York"
   ]
 }
